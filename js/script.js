@@ -8,6 +8,7 @@ function init() {
   switch (global.currentPage) {
     case "/":
     case "/index.html":
+      swiperNowPlaying();
       getPopularMovies();
       break;
     case "/movie-details.html":
@@ -16,8 +17,8 @@ function init() {
     case "/shows.html":
       getPopularShows();
       break;
-    case "/movie-details.html":
-      console.log("TV Details");
+    case "/tv-details.html":
+      displayShowDetails();
       break;
     case "/search.html":
       console.log("Search");
@@ -63,10 +64,74 @@ function hideSpinner() {
   document.querySelector(".spinner").classList.remove("show");
 }
 
+//todo- Swipe through Now playing playlist
+const swiperNowPlaying = async () => {
+  //? get the movies to swipe through
+  const { results } = await fetchAPIData("movie/now_playing");
+
+  results.forEach((movie) => {
+    const div = document.createElement("div");
+    div.classList.add("swiper-slide");
+
+    div.innerHTML = `
+      <a href="movie-details.html?id=${movie.id}">
+        <img src="https:image.tmdb.org/t/p/w500${movie.poster_path}" alt="${
+      movie.title
+    }" />
+      </a>
+      <h4 class="swiper-rating">
+        <i class="fas fa-star text-secondary"></i> ${movie.vote_average.toFixed(
+          1
+        )} / 10
+      </h4>
+    `;
+
+    document.querySelector(".swiper-wrapper").appendChild(div);
+  });
+
+  initSwiperFunction();
+};
+
+const initSwiperFunction = () => {
+  const swiper = new Swiper(".swiper", {
+    slidesPerView: 2,
+    spaceBetween: 10,
+    freeMode: true,
+    loop: true,
+    autoplay: {
+      delay: 4000,
+      disableOnInteraction: true,
+    },
+    pagination: {
+      enabled: true,
+      bulletActiveClass: "swiper-pagination-bullet-active",
+      el: ".swiper-pagination",
+      type: "bullets",
+    },
+    breakpoints: {
+      // when window width is >= 320px
+      500: {
+        slidesPerView: 3,
+        spaceBetween: 20,
+      },
+      // when window width is >= 480px
+      700: {
+        slidesPerView: 4,
+        spaceBetween: 30,
+      },
+      // when window width is >= 640px
+      1200: {
+        slidesPerView: 5,
+        spaceBetween: 40,
+      },
+    },
+  });
+};
+
 //todo- Popular Movies
 const getPopularMovies = async () => {
   const { results } = await fetchAPIData("movie/popular");
-  console.log(results);
+  // console.log(results);
 
   displayPopularMovies(results);
 };
@@ -169,6 +234,8 @@ const displayMovieDetails = async () => {
   document.querySelector("#movie-details").appendChild(div);
 
   hideSpinner();
+  displayBackgrondImage("movie", movie.backdrop_path);
+
   console.log(movie);
 };
 
@@ -185,7 +252,7 @@ const displayPopularShows = (shows) => {
     const div = document.createElement("div");
     div.classList.add("card");
     div.innerHTML = `
-          <a href="movie-details.html?id=${show.id}">
+          <a href="tv-details.html?id=${show.id}">
             ${
               show.poster_path
                 ? `<img
@@ -213,7 +280,98 @@ const displayPopularShows = (shows) => {
   hideSpinner();
 };
 
+const displayShowDetails = async () => {
+  const showId = window.location.search.split("=")[1];
+  const show = await fetchAPIData(`/tv/${showId}`);
+
+  const showDetailsDiv = document.createElement("div");
+  showDetailsDiv.innerHTML = `
+  <div class="details-top">
+  <div>
+  ${
+    show.poster_path
+      ? `<img
+    src="https:image.tmdb.org/t/p/w500${show.poster_path}"
+    class="card-img-top"
+    alt="${show.name}"
+  />`
+      : `<img
+  src="images/no-image.jpg"
+  class="card-img-top"
+  alt="${show.name}"
+/>`
+  }
+  </div>
+  <div>
+    <h2>${show.name}</h2>
+    <p>
+      <i class="fas fa-star text-primary"></i>
+      ${show.vote_average.toFixed(1)} / 10
+    </p>
+    <p class="text-muted">Last air date: ${show.last_air_date}</p>
+    <p>
+      ${show.overview}
+    </p>
+    <h5>Genres</h5>
+    <ul class="list-group">
+      ${show.genres.map((gen) => `<li>${gen.name}</li>`).join("")}
+    </ul>
+    <a href="${
+      show.homepage
+    }" target="_blank" class="btn">Visit Show Homepage</a>
+  </div>
+</div>
+<div class="details-bottom">
+  <h2>Show Info</h2>
+  <ul>
+    <li><span class="text-secondary">Number Of Episodes:</span> ${
+      show.number_of_episodes
+    }</li>
+    <li>
+      <span class="text-secondary">No of seasons:</span> ${
+        show.number_of_seasons
+      }</li>
+    <li><span class="text-secondary">Status: </span> ${show.status}</li>
+  </ul>
+  <h4>Production Companies</h4>
+  <div class="list-group">${show.production_companies
+    .map((comp) => `<p>${comp.name}</p>`)
+    .join("")}</div>
+</div>
+  `;
+
+  // console.log(show);
+  //? parent el
+  const divParent = document.querySelector("#show-details");
+  divParent.appendChild(showDetailsDiv);
+
+  //? backdrop img
+  displayBackgrondImage("tv", show.backdrop_path);
+
+  hideSpinner();
+};
+
 //? separate Numbers With commas
 function numberWithCommas(x) {
   return x.toString().replace(/\B(?=(\d{3})+(?!\d))/g, ",");
 }
+
+//? Details page backdrop image
+const displayBackgrondImage = (type, backdropPath) => {
+  const overlayDiv = document.createElement("div");
+  const style = overlayDiv.style;
+  style.backgroundImage = `url(https://image.tmdb.org/t/p/original${backdropPath})`;
+  style.backgroundPosition = "center";
+  style.backgroundRepeat = "no-repeat";
+  style.height = "100vh";
+  style.width = "100vw";
+  style.position = "absolute";
+  style.top = "0";
+  style.left = "0";
+  style.zIndex = "-10";
+  style.opacity = 0.1;
+
+  type === "movie"
+    ? document.querySelector("#movie-details").appendChild(overlayDiv)
+    : document.querySelector("#show-details").appendChild(overlayDiv);
+};
